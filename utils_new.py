@@ -1,13 +1,13 @@
 """
 Utility code for the Colab:
-https://colab.research.google.com/drive/14O1yyQaT1GEFx2BWj-BAkHLTuuJnC8AR?usp=sharing
+https://colab.research.google.com/drive/1uYDIvc9ZB4wjDm4p5EtbssnJ_9VstnaR?usp=sharing
 """
 
 from dataclasses import dataclass
 from datetime import datetime
+import dill
 from typing import List, NamedTuple
 import matplotlib.pyplot as plt
-
 
 from cox.store import Store
 from robustness import imagenet_models
@@ -33,7 +33,7 @@ class Config:
 
 
 class ConfigsGroup(NamedTuple):
-    configs: List[Config]
+    run_ids: List[str]
     title: str
 
 
@@ -120,10 +120,11 @@ def plot_metric(metrics: List[str],
                 metric_labels: List[str],
                 labels: List[str],
                 n_seeds: int,
-                config_groups: List[ConfigsGroup],
+                config_groups: List[str],
                 plot_name: str,
                 save_dir_artifacts: str,
-                run_time_str: str = None):
+                save_dir_plots: str,
+                figsize: List[int] = None):
     # plt.figure(figsize=(8, 6))
     conf_group_n = len(config_groups)
     metrics_n = len(metrics)
@@ -131,7 +132,7 @@ def plot_metric(metrics: List[str],
     n_rows = metrics_n * conf_group_n // 2
     n_cols = 2 if len(config_groups) > 1 else 1
     fig, axs = plt.subplots(n_rows, n_cols,
-                            figsize=(6 * conf_group_n, 6 * metrics_n),
+                            figsize=figsize if figsize else (6 * conf_group_n, 6 * metrics_n),
                             sharex=False, sharey='row')
     if n_rows == 1 and n_cols == 1:
         axs = [axs]
@@ -139,12 +140,12 @@ def plot_metric(metrics: List[str],
         axs = [ax for ax_row in axs for ax in ax_row]
     for metric_idx, metric in enumerate(metrics):
         for conf_group_idx, config_group in enumerate(config_groups):
-            for config_idx, config in enumerate(config_group.configs):
+            for config_idx, run_id in enumerate(config_group.run_ids):
                 df_sum = None
                 df_sum_squared = None
                 K = None
                 for seed in range(n_seeds):
-                    dir_path = f'{config.name}_{seed}' if run_time_str is None else f'{config.name}_{run_time_str}_{seed}'
+                    dir_path = f'{run_id}_{seed}'
                     df = Store(save_dir_artifacts, dir_path)['result'].df
                     # plt.plot(df['epoch'], df['test_accuracy_False'], label=config.name)
                     if K is None:
@@ -159,19 +160,21 @@ def plot_metric(metrics: List[str],
                 df_var = (df_sum_squared - df_sum * df_sum / 3) / (3 - 1)
                 mean = df_mean[metric]
                 stddev = df_var[metric] ** (0.5)
-                label = labels[config_idx] if labels is not None else dir_path
-                linestyle = 'dashed' if 'STD_network' in config.name else 'solid'
+                label = labels[config_idx] if labels is not None else run_id
+                linestyle = 'dashed' if 'STD_network' in run_id else 'solid'
+                color = '#ff7f0e' if 'STD_train' in run_id else '#1f77b4'
                 axs[metric_idx * conf_group_n + conf_group_idx].plot(df['epoch'], mean, label=label,
-                                                                     linestyle=linestyle)
+                                                                     linestyle=linestyle, color=color)
                 axs[metric_idx * conf_group_n + conf_group_idx].fill_between(df['epoch'], mean - stddev, mean + stddev,
-                                                                             alpha=0.2)
+                                                                             alpha=0.2, color=color)
             axs[metric_idx * conf_group_n + conf_group_idx].set_title(config_group.title)
             axs[metric_idx * conf_group_n + conf_group_idx].set_xlabel('Epoch')
             if conf_group_idx == 0:
                 axs[metric_idx * conf_group_n + conf_group_idx].set_ylabel(metric_labels[metric_idx])
             if metric_idx * conf_group_n + conf_group_idx == 1:
                 axs[metric_idx * conf_group_n + conf_group_idx].legend(loc='best')
-    fig.savefig(f'{save_dir_artifacts}/{plot_name}.pdf')
+    fig.tight_layout()
+    fig.savefig(f'{save_dir_plots}/{plot_name}.pdf')
 
 
 def train_configs(configs: List[Config],

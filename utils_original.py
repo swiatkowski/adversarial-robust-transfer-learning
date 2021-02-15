@@ -1,6 +1,6 @@
 """
 Base utils file for the Colab:
-https://colab.research.google.com/drive/14O1yyQaT1GEFx2BWj-BAkHLTuuJnC8AR?usp=sharing
+https://colab.research.google.com/drive/1uYDIvc9ZB4wjDm4p5EtbssnJ_9VstnaR?usp=sharing
 
 Originally from:
 https://gitlab.com/msatkiewicz/robustness_exercises.git
